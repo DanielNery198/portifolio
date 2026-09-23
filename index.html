@@ -154,6 +154,22 @@ a:focus-visible, button:focus-visible{
 }
 
 /* ==========================================================================
+   LUZ QUE SEGUE O CURSOR/TOQUE — POR TODA A PÁGINA
+   Fixa na tela inteira (não rola com o conteúdo), atrás de tudo (z-index
+   negativo) e sem capturar cliques (pointer-events: none). As variáveis
+   --x/--y são atualizadas via JS a cada movimento do mouse/toque.
+   ========================================================================== */
+#luz-cursor{
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(480px circle at var(--x, 50%) var(--y, 20%),
+              rgba(255,255,255,0.16), transparent 70%);
+  transition: background var(--dur) ease;
+}
+
+/* ==========================================================================
    BARRA DE PROGRESSO DE LEITURA
    Fina barra fixa no topo, preenchida em JS conforme a rolagem da página.
    ========================================================================== */
@@ -238,15 +254,9 @@ a:focus-visible, button:focus-visible{
   overflow: hidden;
 }
 
-/* Luz que segue o cursor/toque — elemento posicionado com --x/--y via JS */
-.hero__luz{
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(420px circle at var(--x, 50%) var(--y, 10%),
-              rgba(255,255,255,0.16), transparent 70%);
-  transition: background var(--dur) ease;
-}
+/* Luz que segue o cursor/toque — agora cobre a página inteira (ver #luz-cursor
+   mais abaixo), e não fica mais presa à largura da seção hero. Isso evita
+   as bordas verticais visíveis nas extremidades laterais. */
 
 .hero__conteudo{
   position: relative;
@@ -529,8 +539,9 @@ footer{
 
 /* ==========================================================================
    EASTER EGG — sobreposição acionada por Ctrl+D
-   Ilustração original (estilo pictograma olímpico) de um ciclista de BMX
-   saltando uma rampa — é "o detalhe que só existe nesta página".
+   Ilustração original (desenho, não é foto) de um gráfico de crescimento:
+   as barras sobem e a seta em zigue-zague desenha o caminho até o topo —
+   é "o detalhe que só existe nesta página".
    ========================================================================== */
 .easter-egg{
   position: fixed;
@@ -556,7 +567,7 @@ footer{
   border: 1px solid var(--surface-border);
   border-radius: 24px;
   padding: 2em;
-  max-width: 480px;
+  max-width: 540px;
   width: 100%;
   text-align: center;
   position: relative;
@@ -574,34 +585,61 @@ footer{
 }
 .easter-egg__legenda{
   margin-top: 1em;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
+  font-style: italic;
   color: var(--text-muted);
 }
 
-/* Grupo animado dentro do SVG. Fica DENTRO de um grupo estático que já o
-   posiciona no centro da pista — assim a animação só soma um deslocamento
-   relativo, sem precisar repetir a posição base (evita o boneco "pular"
-   para o canto do desenho quando a animação começa). */
-#ciclista{
+/* ---- Barras do gráfico ----
+   Cada barra cresce a partir da base (transform-origin: bottom), com um
+   pequeno atraso diferente para cada uma, criando o efeito de "subida em
+   sequência" antes da seta começar a desenhar o caminho. */
+.barra{
   transform-box: fill-box;
-  transform-origin: center;
+  transform-origin: bottom;
+  transform: scaleY(0);
 }
-.easter-egg.ativo #ciclista{
-  animation: salto-rampa 1.7s cubic-bezier(.4,0,.2,1) infinite;
+.easter-egg.ativo .barra{
+  animation: crescer-barra 3.2s ease-out infinite;
 }
-@keyframes salto-rampa{
-  0%   { transform: translate(-155px, 0px)   rotate(0deg); }   /* saindo da rampa de decolagem */
-  40%  { transform: translate(-40px, -95px)  rotate(-12deg); }
-  55%  { transform: translate(10px, -118px)  rotate(0deg); }    /* ponto mais alto do salto */
-  70%  { transform: translate(70px, -85px)   rotate(12deg); }
-  100% { transform: translate(170px, 0px)    rotate(0deg); }   /* aterrissando na outra rampa */
+.barra:nth-of-type(1){ animation-delay: 0s;    }
+.barra:nth-of-type(2){ animation-delay: .12s;  }
+.barra:nth-of-type(3){ animation-delay: .24s;  }
+.barra:nth-of-type(4){ animation-delay: .36s;  }
+@keyframes crescer-barra{
+  0%   { transform: scaleY(0); }
+  35%  { transform: scaleY(1); }
+  100% { transform: scaleY(1); }
 }
-.easter-egg.ativo #roda-tras, .easter-egg.ativo #roda-frente{
-  animation: girar 0.5s linear infinite;
+
+/* ---- Seta de progresso ----
+   O traço usa pathLength="100" no SVG, então stroke-dasharray/dashoffset
+   funcionam em porcentagem simples: 100 = linha escondida, 0 = linha
+   inteira desenhada, "subindo" do início até a ponta. */
+#seta-linha{
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
 }
-@keyframes girar{
-  from{ transform: rotate(0deg); }
-  to{ transform: rotate(360deg); }
+.easter-egg.ativo #seta-linha{
+  animation: desenhar-seta 3.2s ease-in-out infinite;
+}
+@keyframes desenhar-seta{
+  0%   { stroke-dashoffset: 100; }
+  12%  { stroke-dashoffset: 100; } /* espera as barras começarem a subir */
+  90%  { stroke-dashoffset: 0; }   /* termina de desenhar, igual à imagem */
+  100% { stroke-dashoffset: 0; }
+}
+
+/* A ponta da seta só aparece quando a linha termina de subir */
+#seta-ponta{ opacity: 0; }
+.easter-egg.ativo #seta-ponta{
+  animation: mostrar-ponta 3.2s ease-in-out infinite;
+}
+@keyframes mostrar-ponta{
+  0%   { opacity: 0; }
+  88%  { opacity: 0; }
+  92%  { opacity: 1; }
+  100% { opacity: 1; }
 }
 
 /* ==========================================================================
@@ -619,6 +657,9 @@ footer{
 
 <!-- Link de acessibilidade: some visualmente, aparece ao focar via teclado -->
 <a class="pular-link" href="#conteudo">Pular para o conteúdo</a>
+
+<!-- Luz que acompanha o cursor (mouse) ou o toque (celular), por toda a página -->
+<div id="luz-cursor" aria-hidden="true"></div>
 
 <!-- Barra de progresso de leitura, preenchida via JS conforme a rolagem -->
 <div id="barra-progresso" role="presentation"></div>
@@ -641,7 +682,7 @@ footer{
             <circle cx="12" cy="12" r="4"></circle>
             <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>
           </svg>
-          <span id="texto-tema">Tema escuro</span>
+          <span id="texto-tema">Tema claro</span>
         </button>
       </li>
     </ul>
@@ -652,8 +693,6 @@ footer{
 
   <!-- ======================= HERO / TOPO ======================= -->
   <section id="hero" class="hero">
-    <!-- Luz que acompanha o cursor (mouse) ou o toque (celular) -->
-    <div class="hero__luz" aria-hidden="true"></div>
 
     <div class="hero__conteudo">
       <!-- Moldura com perspectiva: permite a inclinação 3D da foto ao passar o mouse -->
@@ -679,18 +718,16 @@ footer{
     </div>
   </section>
 
-  <hr class="divisoria">
 
   <!-- ======================= SOBRE MIM ======================= -->
   <section id="sobre" class="revelar">
     <h2 class="secao__titulo">Sobre mim</h2>
     <div class="sobre__texto">
-      <p>Meu nome é Daniel Nery Batistão Carvalho, de 15 anos de idade, da cidade de Varginha/MG. Atualmente, sou atleta de BMX Racing, patrocinado pela multinacional Circuit Equipment, e estudante, incluindo o curso técnico de Informática para Internet. Vice-campeão Ibero-americano (categoria cruiser), duas vezes campeão paulista, uma vez campeão mineiro e P3 no brasileiro de 2023.</p>
+      <p>Meu nome é Daniel Nery Batistão Carvalho, de 15 anos de idade, da cidade de Varginha/MG. Atualmente, sou atleta de BMX Racing, patrocinado pela multinacional Circuit Equipment, e estudante, incluindo o curso técnico de Informática para Internet. Vice-campeão Ibero-americano (categoria cruiser), duas vezes campeão paulista, uma vez campeão mineiro e P3 no brasileiro de 2023. Também, tenho a minha própria estética automotiva, chamada 198-Estética Duas Rodas, onde consigo extrair cada vez mais aprendizado em experiência no trabalho, comunicação com os clientes, desenvolvimento da minha fala e posts nas redes sociais e administração do meu próprio dinheiro.</p>
       <p>A fé em Deus, o amor e a constância me definem. Tenho em mente que, plantando hoje, a colheita virá no futuro. O curso técnico me trouxe o aprendizado de organizar informação, resolver problemas e me comunicar com clareza — algo que levo comigo para minha carreira profissional.</p>
     </div>
   </section>
 
-  <hr class="divisoria">
 
   <!-- ======================= MINHAS ENTREGAS ======================= -->
   <section id="entregas" class="revelar">
@@ -758,7 +795,6 @@ footer{
     <p class="entregas__instrucao">Arraste para o lado para ver todas as entregas.</p>
   </section>
 
-  <hr class="divisoria">
 
   <!-- ======================= MANIFESTO ======================= -->
   <section id="manifesto" class="revelar">
@@ -780,17 +816,19 @@ footer{
 <!-- ======================= RODAPÉ / CONTATO ======================= -->
 <footer id="contato">
   <h2 class="rodape__titulo">Vamos conversar</h2>
-  <p>Contato e redes para propostas, parcerias ou dúvidas sobre o curso.</p>
+  <p>Me acompanhe nas redes sociais! Estou a disposição à dúvidas e parcerias.</p>
 
   <ul class="rodape__contatos">
-    <li><a class="pilula contorno" href="mailto:danielbmx0112@gmail.com">E-mail</a></li>
+    <!-- Abre o Gmail (compose) direto no navegador, em vez do app de e-mail padrão do sistema -->
+    <li><a class="pilula contorno" href="https://mail.google.com/mail/?view=cm&fs=1&to=danielbmx0112@gmail.com" target="_blank" rel="noopener">E-mail</a></li>
     <li><a class="pilula contorno" href="https://instagram.com/danielbmx_198" target="_blank" rel="noopener">Instagram</a></li>
     <li><a class="pilula contorno" href="https://youtube.com/@DanielNery198" target="_blank" rel="noopener">YouTube</a></li>
-    <li><a class="pilula contorno" href="tel:+5535997456649">(35) 99745-6649</a></li>
+    <!-- Ao tocar, abre uma conversa no WhatsApp com o número de Daniel -->
+    <li><a class="pilula contorno" href="https://wa.me/5535997456649" target="_blank" rel="noopener">Telefone</a></li>
     <li><a class="pilula contorno" href="https://github.com/DanielNery198/portifolio" target="_blank" rel="noopener">GitHub</a></li>
   </ul>
 
-  <p class="rodape__nota">Daniel Nery — Informática para Internet.</p>
+  <p class="rodape__nota">Daniel Nery - Atleta de BMX Racing e estudante</p>
 </footer>
 
 <!-- ======================= EASTER EGG (Ctrl+D) ======================= -->
@@ -798,66 +836,31 @@ footer{
   <div class="easter-egg__caixa">
     <button class="easter-egg__fechar" id="fechar-easter-egg" type="button" aria-label="Fechar">✕</button>
 
-    <!-- Ilustração 100% desenhada (nada de foto real): uma pista de BMX
-         racing, inspirada nos montículos e nas cores da pista de
-         referência, com um boneco de capacete pedalando e saltando. -->
-    <svg viewBox="0 0 400 220" width="100%" height="auto" role="img" aria-label="Desenho de um ciclista de capacete saltando uma rampa em uma pista de BMX racing">
+    <!-- Ilustração 100% desenhada (nada de foto real): um gráfico de
+         crescimento — as barras sobem e a seta em zigue-zague desenha o
+         caminho até o topo, terminando igual à imagem de referência. -->
+    <svg viewBox="0 0 300 260" width="100%" height="auto" role="img" aria-label="Ilustração animada de um gráfico de crescimento: barras que sobem e uma seta em zigue-zague desenhando o caminho até o topo">
 
-      <!-- Pista (faixa azul no chão, como o piso emborrachado da pista de referência) -->
-      <rect x="0" y="185" width="400" height="35" fill="#0b63b8"></rect>
+      <!-- Linha de base do gráfico -->
+      <line x1="20" y1="230" x2="280" y2="230" stroke="var(--text)" stroke-width="4" stroke-linecap="round" opacity="0.6"></line>
 
-      <!-- Pequenos montículos da seção intermediária (rhythm section) -->
-      <polygon points="165,195 190,168 215,195" fill="#c9764a"></polygon>
-      <polyline points="165,195 190,168 215,195" fill="none" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"></polyline>
-      <polygon points="195,195 220,160 245,195" fill="#c9764a"></polygon>
-      <polyline points="195,195 220,160 245,195" fill="none" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"></polyline>
+      <!-- Barras, cada uma um pouco mais alta que a anterior -->
+      <line class="barra" x1="60" y1="230" x2="60" y2="200" stroke="var(--text)" stroke-width="7" stroke-linecap="round"></line>
+      <line class="barra" x1="120" y1="230" x2="120" y2="165" stroke="var(--text)" stroke-width="7" stroke-linecap="round"></line>
+      <line class="barra" x1="180" y1="230" x2="180" y2="130" stroke="var(--text)" stroke-width="7" stroke-linecap="round"></line>
+      <line class="barra" x1="240" y1="230" x2="240" y2="95"  stroke="var(--text)" stroke-width="7" stroke-linecap="round"></line>
 
-      <!-- Rampa de decolagem -->
-      <polygon points="30,195 85,90 140,195" fill="#b6552f"></polygon>
-      <polyline points="30,195 85,90 140,195" fill="none" stroke="#ffffff" stroke-width="3" stroke-linejoin="round"></polyline>
+      <!-- Seta de progresso: desenhada progressivamente via stroke-dashoffset -->
+      <path id="seta-linha" pathLength="100"
+            d="M 30 205 L 90 150 L 125 175 L 165 115 L 205 140 L 260 70"
+            fill="none" stroke="var(--accent)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"></path>
 
-      <!-- Rampa de aterrissagem -->
-      <polygon points="260,195 315,90 370,195" fill="#b6552f"></polygon>
-      <polyline points="260,195 315,90 370,195" fill="none" stroke="#ffffff" stroke-width="3" stroke-linejoin="round"></polyline>
-
-      <!-- Grupo estático: posiciona o conjunto no centro da pista -->
-      <g transform="translate(200,145)">
-        <!-- Grupo animado via CSS: soma apenas o deslocamento do salto -->
-        <g id="ciclista">
-
-          <!-- Bicicleta: rodas com raios -->
-          <circle id="roda-tras" cx="-24" cy="20" r="14" fill="none" stroke="var(--ink)" stroke-width="3"></circle>
-          <path d="M -24 6 L -24 34 M -38 20 L -10 20 M -33 10 L -15 30 M -33 30 L -15 10" fill="none" stroke="var(--ink)" stroke-width="1.5"></path>
-          <circle id="roda-frente" cx="24" cy="20" r="14" fill="none" stroke="var(--ink)" stroke-width="3"></circle>
-          <path d="M 24 6 L 24 34 M 10 20 L 38 20 M 15 10 L 33 30 M 15 30 L 33 10" fill="none" stroke="var(--ink)" stroke-width="1.5"></path>
-
-          <!-- Quadro, garfo e guidão da bicicleta -->
-          <path d="M -24 20 L -8 -6 L 16 -14 M 18 -2 L 0 20 M 18 -2 L 24 20 M -24 20 L 0 20 M 16 -14 L 16 -22 L 10 -22 M 16 -22 L 24 -22"
-                fill="none" stroke="var(--ink)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"></path>
-          <!-- Numeral frontal (plaquinha de número, comum no BMX racing, sem número específico) -->
-          <rect x="13" y="-8" width="10" height="9" rx="2" fill="#ffffff" stroke="var(--ink)" stroke-width="1"></rect>
-          <!-- Pedivelas -->
-          <path d="M 0 20 L 11 30 M 0 20 L -11 12" fill="none" stroke="var(--ink)" stroke-width="3.5" stroke-linecap="round"></path>
-
-          <!-- Pernas do ciclista -->
-          <path d="M -4 -2 L 12 6 L 11 30" fill="none" stroke="var(--accent)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"></path>
-          <path d="M -4 -2 L -14 4 L -11 12" fill="none" stroke="var(--accent)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"></path>
-
-          <!-- Tronco (camisa) -->
-          <path d="M -4 -2 L 13 -20" fill="none" stroke="var(--primary)" stroke-width="11" stroke-linecap="round"></path>
-          <!-- Braço até o guidão -->
-          <path d="M 12 -19 L 22 -22" fill="none" stroke="var(--primary)" stroke-width="6" stroke-linecap="round"></path>
-
-          <!-- Capacete (estilo integral, comum no BMX racing) -->
-          <circle cx="16" cy="-30" r="11" fill="#0b63b8" stroke="#ffffff" stroke-width="1.5"></circle>
-          <path d="M 6 -35 Q 16 -43 26 -35" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round"></path>
-          <path d="M 9 -24 Q 16 -18 25 -23" fill="none" stroke="#0b63b8" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
-          <ellipse cx="21" cy="-28" rx="6" ry="4" fill="var(--ink)"></ellipse>
-        </g>
-      </g>
+      <!-- Ponta da seta: aparece quando a linha termina de subir -->
+      <path id="seta-ponta" d="M 260 70 L 283 48 M 283 48 L 283 68 M 283 48 L 264 48"
+            fill="none" stroke="var(--accent)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"></path>
     </svg>
 
-    <p class="easter-egg__legenda">Um dia, essa rampa vai ser de verdade — rumo ao topo do pódio olímpico.</p>
+    <p class="easter-egg__legenda">"É pela vossa constância que alcançareis a vossa salvação" (Lucas 21:19)</p>
   </div>
 </div>
 
@@ -896,40 +899,43 @@ const prefereMenosMovimento = window.matchMedia('(prefers-reduced-motion: reduce
   function aplicarTema(tema){
     if(tema === 'claro'){
       raiz.setAttribute('data-theme', 'claro');
-      texto.textContent = 'Tema claro';
+      // O botão mostra o tema para o qual a pessoa vai MUDAR ao clicar,
+      // e não o tema atual — por isso, no tema claro, o texto é "Tema escuro".
+      texto.textContent = 'Tema escuro';
       botao.setAttribute('aria-pressed', 'true');
-      // Ícone de lua (para indicar que, ao clicar, volta ao escuro)
+      // Ícone de lua (indica que, ao clicar, o próximo tema é o escuro)
       icone.innerHTML = '<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5Z"></path>';
     } else {
       raiz.removeAttribute('data-theme');
-      texto.textContent = 'Tema escuro';
+      // No tema escuro, o botão mostra "Tema claro" (o que ele vira ao clicar)
+      texto.textContent = 'Tema claro';
       botao.setAttribute('aria-pressed', 'false');
-      // Ícone de sol
+      // Ícone de sol (indica que, ao clicar, o próximo tema é o claro)
       icone.innerHTML = '<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>';
     }
   }
 })();
 
 /* ------------------------------------------------------------
-   2) LUZ QUE SEGUE O CURSOR/TOQUE NO TOPO (hero)
+   2) LUZ QUE SEGUE O CURSOR/TOQUE POR TODA A PÁGINA
    Atualiza as variáveis CSS --x e --y usadas no radial-gradient.
+   Como a luz é fixa na tela (não rola com a página), usamos as
+   coordenadas da JANELA (não de uma seção específica).
    ------------------------------------------------------------ */
 (function configurarLuz(){
   if(prefereMenosMovimento) return; // respeita quem pediu menos movimento
 
-  const hero = document.getElementById('hero');
-  const luz = hero.querySelector('.hero__luz');
+  const luz = document.getElementById('luz-cursor');
 
   function mover(x, y){
-    const retangulo = hero.getBoundingClientRect();
-    const px = ((x - retangulo.left) / retangulo.width) * 100;
-    const py = ((y - retangulo.top) / retangulo.height) * 100;
+    const px = (x / window.innerWidth) * 100;
+    const py = (y / window.innerHeight) * 100;
     luz.style.setProperty('--x', px + '%');
     luz.style.setProperty('--y', py + '%');
   }
 
-  hero.addEventListener('mousemove', function(e){ mover(e.clientX, e.clientY); });
-  hero.addEventListener('touchmove', function(e){
+  window.addEventListener('mousemove', function(e){ mover(e.clientX, e.clientY); });
+  window.addEventListener('touchmove', function(e){
     if(e.touches[0]){ mover(e.touches[0].clientX, e.touches[0].clientY); }
   }, { passive: true });
 })();
@@ -1059,7 +1065,7 @@ const prefereMenosMovimento = window.matchMedia('(prefers-reduced-motion: reduce
 })();
 
 /* ------------------------------------------------------------
-   8) EASTER EGG — pressionar Ctrl + D mostra o salto de BMX
+   8) EASTER EGG — pressionar Ctrl + D mostra o gráfico de crescimento animado
    (o detalhe exclusivo desta página, conforme pedido no briefing)
    ------------------------------------------------------------ */
 (function configurarEasterEgg(){
